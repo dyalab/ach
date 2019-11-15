@@ -240,6 +240,9 @@ Returns -- (values ach-status frame-size)."
         ((eq :overflow r)
          (cffi:foreign-free pointer)
          (get-foreign-alloc channel :length frame-size :wait wait :last last))
+	((eq :stale-frames r)
+	 (cffi:foreign-free pointer)
+	 (values nil r 0))
         (t (cffi:foreign-free pointer)
            (ach-status r "Error reading frame: ~A" r))))))
 
