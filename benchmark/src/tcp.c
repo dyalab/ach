@@ -59,7 +59,6 @@ static int *csock;
 static int *fd;
 static struct sockaddr_in *addr;
 static struct sockaddr_in *caddr;
-unsigned clen;
 
 
 static void s_init(void) {
@@ -102,6 +101,7 @@ static void s_init_recv(void) {
     s_sock();
 
     size_t i;
+    unsigned clen;
     for( i = 0; i < ipcbench_cnt; i ++ ) {
 
         u_int yes = 1;

@@ -57,7 +57,6 @@ static int *csock;
 static int *fd;
 static struct sockaddr_un *addr;
 static struct sockaddr_un *caddr;
-unsigned clen;
 
 #define NAME "/tmp/ipcbench-%lu.sock"
 
@@ -108,6 +107,7 @@ static void s_init_recv(void) {
     s_sock();
 
     size_t i;
+    unsigned clen;
     for( i = 0; i < ipcbench_cnt; i ++ ) {
         if (bind(sock[i], (struct sockaddr *) &addr[i], sizeof(addr[i])) < 0) {
             perror("Failed to bind the server socket");
