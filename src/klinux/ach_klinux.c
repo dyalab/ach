@@ -562,7 +562,6 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				ret = 0;
 			break;
 		}
-
 	case ACH_CH_GET_STATUS:{
 			KDEBUG("ach: Got cmd ACH_CH_GET_STATUS\n");
 			if (rt_mutex_lock_interruptible(&ch_file->shm->sync.mutex)) {
@@ -610,6 +609,7 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				}
 			}
 			rt_mutex_unlock(&ch_file->shm->sync.mutex);
+			break;
 		}
 	case ACH_CH_FLUSH:
 		KDEBUG("ach: Got cmd ACH_CH_FLUSH\n");
