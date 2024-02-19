@@ -60,11 +60,11 @@
 
 /** Lock the channel for reading.
  *
- * \param[in] timeout In user-mode this is an absolute timeout.  In
- *                    kernel mode, it is a relative timeout.
+ * \param[in] timeout In user-mode this is an absolute timeout given as a const struct timespec*.  In
+ *                    kernel mode, it is a relative timeout given as a const struct timespec64*.
  */
 static enum ach_status ACH_WARN_UNUSED
-rdlock( ach_channel_t *chan, int wait, const struct timespec *timeout );
+rdlock( ach_channel_t *chan, int wait, const void* timeout );
 
 /** Lock the channel for writing */
 static enum ach_status ACH_WARN_UNUSED
@@ -248,7 +248,7 @@ ach_xget_from_offset(ach_channel_t * chan, size_t index_offset,
 static enum ach_status ACH_WARN_UNUSED
 ach_xget(ach_channel_t * chan, ach_get_fun transfer, void *cx, void **pobj,
          size_t * frame_size,
-         const struct timespec *timeout,
+         const void *timeout,
          int options )
 {
     struct ach_header *shm = chan->shm;

@@ -268,7 +268,11 @@ ach_put_fun(void *cx, void *chan_dst, const void *obj_src);
  *  updating when no changes exist. */
 typedef struct achk_opt {
     int options;               /**< get options used by the kernel */
+    #ifdef __KERNEL__
+    struct timespec64 reltime;
+    #else
     struct timespec reltime;   /**< kernel use relative time */
+    #endif
 } achk_opt_t;
 
 #ifdef CONFIG_COMPAT
@@ -276,7 +280,11 @@ typedef struct achk_opt {
 /** Compat struct for achk_opt */
 typedef struct achk_opt_32 {
     int options;                      /**< get options used by the kernel */
-    struct compat_timespec reltime;   /**< kernel use relative time */
+    #ifdef __KERNEL__
+    struct old_timespec32 reltime;   /**< kernel use relative time */
+    #else
+    struct compat_timespec reltime;
+    #endif
 } achk_opt_t_32;
 
 #endif /* CONFIG_COMPAT */

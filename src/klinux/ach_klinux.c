@@ -139,7 +139,7 @@ chan_lock( ach_channel_t *chan )
 
 
 static enum ach_status
-rdlock_wait(ach_channel_t * chan, const struct timespec *reltime)
+kernel_rdlock_wait(ach_channel_t * chan, const struct timespec64 *reltime)
 {
 	int res;
 	struct ach_header *shm = chan->shm;
@@ -152,7 +152,7 @@ rdlock_wait(ach_channel_t * chan, const struct timespec *reltime)
 		if (reltime->tv_sec != 0 || reltime->tv_nsec != 0) {
 			res = wait_event_interruptible_timeout( shm->sync. readq,
 								((*c_seq != *s_seq) || *cancel),
-								timespec_to_jiffies (reltime) );
+								timespec64_to_jiffies (reltime) );
 			if (0 == res) return ACH_TIMEOUT;
 		} else {
 			res = wait_event_interruptible( shm->sync.readq,
@@ -164,7 +164,7 @@ rdlock_wait(ach_channel_t * chan, const struct timespec *reltime)
 		if( res < 0 ) {
 			ACH_ERRF("ach bug: rdlock_wait(), "
 				 "could not wait for event, "
-				 "timeout: (%lu,%ld), result=%d\n",
+				 "timeout: (%llu,%ld), result=%d\n",
 				 reltime->tv_sec, reltime->tv_nsec, res);
 			return ACH_BUG;
 		}
@@ -181,9 +181,9 @@ rdlock_wait(ach_channel_t * chan, const struct timespec *reltime)
 }
 
 static enum ach_status
-rdlock(ach_channel_t * chan, int wait, const struct timespec *reltime)
+rdlock(ach_channel_t * chan, int wait, const void *reltime)
 {
-	if( wait ) return rdlock_wait(chan, reltime);
+	if( wait ) return kernel_rdlock_wait(chan, (struct timespec64*) reltime);
 	else return chan_lock(chan);
 }
 
