@@ -1026,6 +1026,19 @@ static struct miscdevice ach_misc_device = {
 	.fops = &ach_ctrl_fops
 };
 
+static char *ach_devnode(const struct device *dev, umode_t *mode)
+{
+	if (!mode)
+		return NULL;
+	*mode=DEV_CLASS_MODE;
+	return NULL;
+}
+
+struct class ach_class = {
+	.name = ACH_CH_SUBSYSTEM,
+	.devnode = ach_devnode
+};
+
 /**********************************************************************************
  * MODULE INIT
  **********************************************************************************/
@@ -1054,11 +1067,12 @@ static int __init ach_init(void)
 	/* We'll use own major number as we want to control the minor numbers ourself */
 	{
 		dev_t dev_num;
+		ctrl_data.ach_ch_class = &ach_class;
+		int err = class_register(&ach_class);
 
-		ctrl_data.ach_ch_class = class_create(THIS_MODULE, ACH_CH_SUBSYSTEM);
-		if (IS_ERR(ctrl_data.ach_ch_class)) {
-			ret = PTR_ERR(ctrl_data.ach_ch_class);
-			printk(KERN_ERR "ach: Failed to create class\n");
+		if (err < 0) {
+			ret = ACH_FAILED_SYSCALL;
+			printk(KERN_ERR "ach: Failed to create class(%d)\n", err);
 			goto out_deregister;
 		}
 
