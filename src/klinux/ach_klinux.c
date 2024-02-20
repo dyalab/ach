@@ -544,6 +544,7 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 
 	case ACH_CH_SET_MODE: {
+		KDEBUG("ach: Got ACH_CH_SET_MODE\n");
 		struct achk_opt opt;
 		if (copy_from_user(&opt, (void*)arg, sizeof(opt)) ) {
                        ret = -EFAULT;
@@ -622,6 +623,7 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 	case ACH_CH_GET_OPTIONS: {
+		KDEBUG("ach: Got ACH_CH_GET_OPTIONS\n");
 		struct ach_ch_options retval;
 		retval.mode = ch_file->mode;
 		retval.clock = ch_file->shm->clock;
@@ -888,6 +890,7 @@ ctrl_create (struct ach_ctrl_create_ch *arg )
 static long ach_ctrl_ioctl(struct file *file, unsigned int cmd,
 			   unsigned long arg)
 {
+	KDEBUG("ach: in ach_ctrl_ioctl");
 	/* TODO: Validate argument */
 	int ret = 0;
 
@@ -923,6 +926,7 @@ static long ach_ctrl_ioctl(struct file *file, unsigned int cmd,
 			struct ach_ch_device *dev;
 			dev = ach_ch_device_find(unlink_arg.name);
 			if (!dev) {
+				printk( KERN_INFO "ach: Couldn't find channel %s\n", unlink_arg.name);
 				ret = -ENOENT;
 				goto out_unlock;
 			}
@@ -943,7 +947,6 @@ static long ach_ctrl_ioctl(struct file *file, unsigned int cmd,
 		ret = -ENOSYS;
 		break;
 	}
-
  out_unlock:
 	rt_mutex_unlock(&ctrl_data.lock);
 	return ret;
