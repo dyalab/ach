@@ -1008,10 +1008,12 @@ static struct file_operations ach_ctrl_fops = {
 	.llseek = NULL,
 };
 
+#define DEV_CLASS_MODE ((umode_t)(S_IRUGO|S_IWUGO))
 static struct miscdevice ach_misc_device = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "achctrl",
-	.fops = &ach_ctrl_fops
+	.fops = &ach_ctrl_fops,
+	.mode = DEV_CLASS_MODE
 };
 
 static char *ach_devnode(const struct device *dev, umode_t *mode)
