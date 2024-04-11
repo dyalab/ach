@@ -388,6 +388,8 @@ dkmspkginclude_HEADERS = \
 	 include/ach/private_klinux.h
 dkms_DATA = src/klinux/dkms/dkms.conf src/klinux/ach_klinux.c src/klinux/dkms/Kbuild
 
+udevdir=/etc/udev/rules.d/
+udev_DATA=99-ach.rules
 endif
 
 ###########
