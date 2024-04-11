@@ -5,7 +5,7 @@ BUILT_SOURCES =
 EXTRA_DIST = \
 	spin
 
-AM_DISTCHECK_CONFIGURE_FLAGS=--enable-dkms --disable-dkms-build --disable-kbuild --with-python --with-java
+AM_DISTCHECK_CONFIGURE_FLAGS=--disable-dkms --disable-dkms-build --disable-kbuild --with-python
 
 # dist_bin_SCRIPTS = achpipe achlog
 
@@ -390,6 +390,7 @@ dkms_DATA = src/klinux/dkms/dkms.conf src/klinux/ach_klinux.c src/klinux/dkms/Kb
 
 udevdir=/etc/udev/rules.d/
 udev_DATA=99-ach.rules
+EXTRA_DIST +=99-ach.rules
 endif
 
 ###########
