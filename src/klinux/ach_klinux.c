@@ -480,8 +480,6 @@ static int ach_ch_close(struct inode *inode, struct file *file)
 	struct ach_ch_file *ch_file;
 	int ret = 0;
 
-	KDEBUG("ach: in ach_ch_close (inode %d)\n", iminor(inode));
-
 	/* Synchronize to protect refcounting */
 	if (rt_mutex_lock_interruptible(&ctrl_data.lock)) {
 		ret = -ERESTARTSYS;
@@ -539,12 +537,9 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int ret = 0;
 	struct ach_ch_file *ch_file = (struct ach_ch_file *)file->private_data;
 
-	KDEBUG("ach: In ach_ch_ioctl\n");
-
 	switch (cmd) {
 
 	case ACH_CH_SET_MODE: {
-		KDEBUG("ach: Got ACH_CH_SET_MODE\n");
 		struct achk_opt opt;
 		if (copy_from_user(&opt, (void*)arg, sizeof(opt)) ) {
                        ret = -EFAULT;
@@ -556,7 +551,6 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	case ACH_CH_GET_MODE:{
-			KDEBUG("ach: Got cmd ACH_CH_GET_MODE: %ld\n", arg);
 			if( copy_to_user((void*)arg, &ch_file->mode, sizeof(ch_file->mode)) )
 				ret = -EFAULT;
 			else
@@ -564,7 +558,6 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 	case ACH_CH_GET_STATUS:{
-			KDEBUG("ach: Got cmd ACH_CH_GET_STATUS\n");
 			if (rt_mutex_lock_interruptible(&ch_file->shm->sync.mutex)) {
 				ret = -ERESTARTSYS;
 				break;
@@ -613,17 +606,14 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 	case ACH_CH_FLUSH:
-		KDEBUG("ach: Got cmd ACH_CH_FLUSH\n");
 		ret = -get_errno( ach_flush(ch_file) );
 		break;
 	case ACH_CH_CANCEL:{
 			unsigned int unsafe = (unsigned int)arg;
-			KDEBUG("ach: Got cmd ACH_CH_CANCEL\n");
 			ret = -get_errno(ach_cancel(ch_file, unsafe));
 			break;
 		}
 	case ACH_CH_GET_OPTIONS: {
-		KDEBUG("ach: Got ACH_CH_GET_OPTIONS\n");
 		struct ach_ch_options retval;
 		retval.mode = ch_file->mode;
 		retval.clock = ch_file->shm->clock;
@@ -890,7 +880,6 @@ ctrl_create (struct ach_ctrl_create_ch *arg )
 static long ach_ctrl_ioctl(struct file *file, unsigned int cmd,
 			   unsigned long arg)
 {
-	KDEBUG("ach: in ach_ctrl_ioctl");
 	/* TODO: Validate argument */
 	int ret = 0;
 
@@ -902,7 +891,6 @@ static long ach_ctrl_ioctl(struct file *file, unsigned int cmd,
 
 	case ACH_CTRL_CREATE_CH: {
 		struct ach_ctrl_create_ch create_arg;
-		KDEBUG("ach: Control command create\n");
 		if (copy_from_user(&create_arg, (void*)arg, sizeof(create_arg)) ) {
 			ret = -EFAULT;
 		} else if ( strnlen(create_arg.name,ACH_CHAN_NAME_MAX)
@@ -915,7 +903,6 @@ static long ach_ctrl_ioctl(struct file *file, unsigned int cmd,
 	}
 	case ACH_CTRL_UNLINK_CH:{
 		struct ach_ctrl_unlink_ch unlink_arg;
-		KDEBUG("ach: Control command unlink\n");
 		if (copy_from_user(&unlink_arg, (void*)arg, sizeof(unlink_arg)) ) {
 			ret = -EFAULT;
 		} else if ( strnlen(unlink_arg.name,ACH_CHAN_NAME_MAX)
@@ -1011,7 +998,7 @@ static struct file_operations ach_ctrl_fops = {
 	.llseek = NULL,
 };
 
-#define DEV_CLASS_MODE ((umode_t)(S_IRUGO|S_IWUGO))
+#define DEV_CLASS_MODE ((umode_t)(S_IRUSR | S_IRGRP))
 static struct miscdevice ach_misc_device = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "achctrl",
