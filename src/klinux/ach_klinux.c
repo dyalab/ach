@@ -49,6 +49,7 @@
 #include <linux/kernel.h>	/* KERN_INFO macros */
 #include <linux/module.h>	/* required for all kernel modules */
 #include <linux/moduleparam.h>	/* module_param() and MODULE_PARM_DESC() */
+#include <linux/version.h>
 
 #include <linux/fs.h>		/* struct file_operations, struct file */
 #include <linux/miscdevice.h>	/* struct miscdevice and misc_[de]register() */
@@ -1006,7 +1007,13 @@ static struct miscdevice ach_misc_device = {
 	.mode = DEV_CLASS_MODE
 };
 
+
+// Function signiture update after 6.1.85
+#if LINUX_VERSION_CODE > KERNEL_VERSION(6,1,85)
 static char *ach_devnode(const struct device *dev, umode_t *mode)
+#else
+static char *ach_devnode(struct device *dev, umode_t *mode)
+#endif
 {
 	if (!mode)
 		return NULL;
