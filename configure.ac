@@ -467,6 +467,12 @@ AM_CONDITIONAL([INSTALL_DKMS],
 AM_CONDITIONAL([BUILD_DKMS],
                [test "x$enable_dkms_build" = xyes])
 
+AS_IF([test "x$enable_dkms" = xyes],
+      [AC_MSG_CHECKING([whether ach group exists])
+       AS_IF([test ! $(getent group ach) ],
+             [AC_MSG_RESULT([no]) 
+              AC_MSG_ERROR([kernel module requires an 'ach' group, but none was found.])],
+             [AC_MSG_RESULT(yes)])])
 
 
 #########
