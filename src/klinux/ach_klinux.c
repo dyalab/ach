@@ -480,7 +480,9 @@ static int ach_ch_close(struct inode *inode, struct file *file)
 {
 	struct ach_ch_file *ch_file;
 	int ret = 0;
-
+	
+	KDEBUG("ach: in ach_ch_close (inode %d)\n", iminor(inode));
+	
 	/* Synchronize to protect refcounting */
 	if (rt_mutex_lock_interruptible(&ctrl_data.lock)) {
 		ret = -ERESTARTSYS;
@@ -538,6 +540,8 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int ret = 0;
 	struct ach_ch_file *ch_file = (struct ach_ch_file *)file->private_data;
 
+	KDEBUG("ach: In ach_ch_ioctl\n");
+	
 	switch (cmd) {
 
 	case ACH_CH_SET_MODE: {
@@ -552,6 +556,7 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	case ACH_CH_GET_MODE:{
+			KDEBUG("ach: Got cmd ACH_CH_GET_MODE: %ld\n", arg);
 			if( copy_to_user((void*)arg, &ch_file->mode, sizeof(ch_file->mode)) )
 				ret = -EFAULT;
 			else
@@ -559,6 +564,7 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 	case ACH_CH_GET_STATUS:{
+			KDEBUG("ach: Got cmd ACH_CH_GET_STATUS\n");
 			if (rt_mutex_lock_interruptible(&ch_file->shm->sync.mutex)) {
 				ret = -ERESTARTSYS;
 				break;
@@ -607,10 +613,12 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 	case ACH_CH_FLUSH:
+		KDEBUG("ach: Got cmd ACH_CH_FLUSH\n");
 		ret = -get_errno( ach_flush(ch_file) );
 		break;
 	case ACH_CH_CANCEL:{
 			unsigned int unsafe = (unsigned int)arg;
+			KDEBUG("ach: Got cmd ACH_CH_CANCEL\n");
 			ret = -get_errno(ach_cancel(ch_file, unsafe));
 			break;
 		}
@@ -891,6 +899,7 @@ static long ach_ctrl_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 
 	case ACH_CTRL_CREATE_CH: {
+		KDEBUG("ach: Control command create\n");
 		struct ach_ctrl_create_ch create_arg;
 		if (copy_from_user(&create_arg, (void*)arg, sizeof(create_arg)) ) {
 			ret = -EFAULT;
@@ -904,6 +913,7 @@ static long ach_ctrl_ioctl(struct file *file, unsigned int cmd,
 	}
 	case ACH_CTRL_UNLINK_CH:{
 		struct ach_ctrl_unlink_ch unlink_arg;
+		KDEBUG("ach: Control command unlink\n");
 		if (copy_from_user(&unlink_arg, (void*)arg, sizeof(unlink_arg)) ) {
 			ret = -EFAULT;
 		} else if ( strnlen(unlink_arg.name,ACH_CHAN_NAME_MAX)
