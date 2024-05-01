@@ -471,7 +471,7 @@ AS_IF([test "x$enable_dkms" = xyes],
       [AC_MSG_CHECKING([whether ach group exists])
        AS_IF([test ! $(getent group ach) ],
              [AC_MSG_RESULT([no]) 
-              AC_MSG_ERROR([kernel module requires an 'ach' group, but none was found.])],
+              AC_MSG_ERROR([kernel module requires an 'ach' group, but none was found. Please create the 'ach' group and add any users to it that should use 'ach'])],
              [AC_MSG_RESULT(yes)])])
 
 
