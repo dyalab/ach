@@ -171,7 +171,8 @@ chan_lock( ach_channel_t *chan ) {
 }
 
 static enum ach_status
-rdlock( ach_channel_t *chan, int wait, const struct timespec *abstime ) {
+rdlock( ach_channel_t *chan, int wait, const void *abstime_ ) {
+    const struct timespec* abstime = (struct timepec*) abstime_;
 
     ach_header_t *shm = chan->shm;
     {

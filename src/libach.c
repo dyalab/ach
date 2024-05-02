@@ -357,13 +357,13 @@ ach_unlink( const char *name )
     if( ACH_OK != r_name ) return r_name;
 
     r_s = libach_vtab_user.unlink(name);
-    if( !ach_status_match(r_s, ACH_MASK_OK | ACH_MASK_ENOENT) )
+    // If we found the channel in kernel space, quit early
+    if( !ach_status_match(r_s, ACH_MASK_ENOENT) )
         return r_s;
 
     r_k = libach_vtab_klinux.unlink(name);
     if( !ach_status_match(r_k, ACH_MASK_OK | ACH_MASK_ENOENT | ACH_MASK_EACCES) )
         return r_k;
-
     if( ach_status_match(ACH_OK, ach_status_mask(r_s) | ach_status_mask(r_k)) ) {
         /* something was unlinked */
         return ACH_OK;

@@ -1,0 +1,10 @@
+# Control permissions for ach character devices
+
+# Set the permissions of the ach control device
+KERNEL=="achctrl", GROUP="ach", MODE="660"
+
+# Set the permissions of ach channel devices
+KERNEL=="ach-*", GROUP="ach", MODE="660"
+
+# Create symbolic links for ach channel devices
+KERNEL=="ach-*", SYMLINK+="ach/%k"

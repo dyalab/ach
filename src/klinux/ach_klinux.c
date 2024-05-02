@@ -49,6 +49,7 @@
 #include <linux/kernel.h>	/* KERN_INFO macros */
 #include <linux/module.h>	/* required for all kernel modules */
 #include <linux/moduleparam.h>	/* module_param() and MODULE_PARM_DESC() */
+#include <linux/version.h>
 
 #include <linux/fs.h>		/* struct file_operations, struct file */
 #include <linux/miscdevice.h>	/* struct miscdevice and misc_[de]register() */
@@ -139,7 +140,7 @@ chan_lock( ach_channel_t *chan )
 
 
 static enum ach_status
-rdlock_wait(ach_channel_t * chan, const struct timespec *reltime)
+kernel_rdlock_wait(ach_channel_t * chan, const struct timespec64 *reltime)
 {
 	int res;
 	struct ach_header *shm = chan->shm;
@@ -152,7 +153,7 @@ rdlock_wait(ach_channel_t * chan, const struct timespec *reltime)
 		if (reltime->tv_sec != 0 || reltime->tv_nsec != 0) {
 			res = wait_event_interruptible_timeout( shm->sync. readq,
 								((*c_seq != *s_seq) || *cancel),
-								timespec_to_jiffies (reltime) );
+								timespec64_to_jiffies (reltime) );
 			if (0 == res) return ACH_TIMEOUT;
 		} else {
 			res = wait_event_interruptible( shm->sync.readq,
@@ -164,7 +165,7 @@ rdlock_wait(ach_channel_t * chan, const struct timespec *reltime)
 		if( res < 0 ) {
 			ACH_ERRF("ach bug: rdlock_wait(), "
 				 "could not wait for event, "
-				 "timeout: (%lu,%ld), result=%d\n",
+				 "timeout: (%llu,%ld), result=%d\n",
 				 reltime->tv_sec, reltime->tv_nsec, res);
 			return ACH_BUG;
 		}
@@ -181,9 +182,9 @@ rdlock_wait(ach_channel_t * chan, const struct timespec *reltime)
 }
 
 static enum ach_status
-rdlock(ach_channel_t * chan, int wait, const struct timespec *reltime)
+rdlock(ach_channel_t * chan, int wait, const void *reltime)
 {
-	if( wait ) return rdlock_wait(chan, reltime);
+	if( wait ) return kernel_rdlock_wait(chan, (struct timespec64*) reltime);
 	else return chan_lock(chan);
 }
 
@@ -479,9 +480,9 @@ static int ach_ch_close(struct inode *inode, struct file *file)
 {
 	struct ach_ch_file *ch_file;
 	int ret = 0;
-
+	
 	KDEBUG("ach: in ach_ch_close (inode %d)\n", iminor(inode));
-
+	
 	/* Synchronize to protect refcounting */
 	if (rt_mutex_lock_interruptible(&ctrl_data.lock)) {
 		ret = -ERESTARTSYS;
@@ -540,31 +541,19 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct ach_ch_file *ch_file = (struct ach_ch_file *)file->private_data;
 
 	KDEBUG("ach: In ach_ch_ioctl\n");
-
+	
 	switch (cmd) {
 
 	case ACH_CH_SET_MODE: {
 		struct achk_opt opt;
 		if (copy_from_user(&opt, (void*)arg, sizeof(opt)) ) {
-			ret = -EFAULT;
+                       ret = -EFAULT;
 		} else {
-			/* This is not threadsafe */
+		/* This is not threadsafe */
 			ch_file->mode = opt;
-			/* if (ch_file->mode.reltime.tv_sec != 0 */
-			/*     || ch_file->mode.reltime.tv_nsec != 0) */
-			/*	KDEBUG("ach: Setting wait time to %ld.%09ld\n", */
-			/*	       ch_file->mode.reltime.tv_sec, */
-			/*	       ch_file->mode.reltime.tv_nsec); */
-			/* KDEBUG("ach: Got cmd ACH_CH_SET_MODE: \n"); */
-			/* KDEBUG1("    ACH_O_WAIT=%d\n", */
-			/*	ch_file->mode.mode & ACH_O_WAIT); */
-			/* KDEBUG1("    ACH_O_LAST=%d\n", */
-			/*	ch_file->mode.mode & ACH_O_LAST); */
-			/* KDEBUG1("    ACH_O_COPY=%d\n", */
-			/*	ch_file->mode.mode & ACH_O_COPY); */
 			ret = 0;
-			break;
 		}
+		break;
 	}
 	case ACH_CH_GET_MODE:{
 			KDEBUG("ach: Got cmd ACH_CH_GET_MODE: %ld\n", arg);
@@ -574,7 +563,6 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				ret = 0;
 			break;
 		}
-
 	case ACH_CH_GET_STATUS:{
 			KDEBUG("ach: Got cmd ACH_CH_GET_STATUS\n");
 			if (rt_mutex_lock_interruptible(&ch_file->shm->sync.mutex)) {
@@ -622,6 +610,7 @@ static long ach_ch_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				}
 			}
 			rt_mutex_unlock(&ch_file->shm->sync.mutex);
+			break;
 		}
 	case ACH_CH_FLUSH:
 		KDEBUG("ach: Got cmd ACH_CH_FLUSH\n");
@@ -658,31 +647,31 @@ static long ach_ch_set_mode_compat_ioctl(struct file *file, unsigned int cmd, un
 {
 	struct achk_opt_32 *arg32 = (struct achk_opt_32 *)arg;
 	struct achk_opt arg64;
-	struct achk_opt *p = compat_alloc_user_space(sizeof(arg64));
+	struct achk_opt p;
 	int err;
 	memset(&arg64, 0, sizeof(arg64));
 	err = 0;
 	err |= copy_from_user(&arg64.options, &arg32->options, sizeof(arg64.options));
-	err |= compat_get_timespec(&arg64.reltime, &arg32->reltime);
-	err |= copy_to_user(p, &arg64, sizeof(arg64));
+	err |= get_old_timespec32(&arg64.reltime, &arg32->reltime);
+	memcpy(&p, &arg64, sizeof(arg64));
 	if (err)
 		return -EFAULT;
-	return ach_ch_ioctl(file, ACH_CH_SET_MODE, (unsigned long)p);
+	return ach_ch_ioctl(file, ACH_CH_SET_MODE, (unsigned long) &p);
 }
 
 static long ach_ch_get_mode_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct achk_opt_32 *arg32 = (struct achk_opt_32 *)arg;
 	struct achk_opt arg64;
-	struct achk_opt *p = compat_alloc_user_space(sizeof(arg64));
+	struct achk_opt p;
 	int err;
-	err = ach_ch_ioctl(file, ACH_CH_GET_MODE, (unsigned long)p);
+	err = ach_ch_ioctl(file, ACH_CH_GET_MODE, (unsigned long)&p);
 	if (err)
 		return err;
+	memcpy(&arg64, &p, sizeof(arg64));
 	err = 0;
-	err |= copy_from_user(&arg64, p, sizeof(arg64));
 	err |= copy_to_user(&arg32->options, &arg64.options, sizeof(arg64.options));
-	err |= compat_put_timespec(&arg64.reltime, &arg32->reltime);
+	err |= get_old_timespec32(&arg64.reltime, &arg32->reltime);
 	if (err)
 		return -EFAULT;
 	return 0;
@@ -692,14 +681,14 @@ static long ach_ch_get_status_compat_ioctl(struct file *file, unsigned int cmd, 
 {
 	struct ach_ch_status_32 *arg32 = (struct ach_ch_status_32 *)arg;
 	struct ach_ch_status arg64;
-	struct ach_ch_status *p = compat_alloc_user_space(sizeof(arg64));
+	struct ach_ch_status p;
 	s32 i;
 	u32 u;
 	int err;
-	err = ach_ch_ioctl(file, ACH_CH_GET_STATUS, (unsigned long)p);
+	err = ach_ch_ioctl(file, ACH_CH_GET_STATUS, (unsigned long)&p);
 	if (err)
 		return err;
-	err |= copy_from_user(&arg64, p, sizeof(arg64));
+	memcpy(&arg64, &p, sizeof(arg64));
 	i = (s32)arg64.size;
 	err |= copy_to_user(&i, &arg32->size, sizeof(s32));
 	i = (s32)arg64.count;
@@ -719,16 +708,16 @@ static long ach_ch_get_options_compat_ioctl(struct file *file, unsigned int cmd,
 {
 	struct ach_ch_options_32 *arg32 = (struct ach_ch_options_32 *)arg;
 	struct ach_ch_options arg64;
-	struct ach_ch_options *p = compat_alloc_user_space(sizeof(arg64));
+	struct ach_ch_options p;
 	int err;
-	err = ach_ch_ioctl(file, ACH_CH_GET_OPTIONS, (unsigned long)p);
+	err = ach_ch_ioctl(file, ACH_CH_GET_OPTIONS, (unsigned long) &p);
 	if (err)
 		return err;
 	err = 0;
-	err |= copy_from_user(&arg64, p, sizeof(arg64));
+	memcpy(&arg64, &p, sizeof(arg64));
 	err |= copy_to_user(&arg32->mode.options, &arg64.mode.options, sizeof(arg64.mode.options));
 	err |= copy_to_user(&arg32->clock, &arg64.clock, sizeof(arg64.clock));
-	err |= compat_put_timespec(&arg64.mode.reltime, &arg32->mode.reltime);
+	err |= get_old_timespec32(&arg64.mode.reltime, &arg32->mode.reltime);
 	if (err)
 		return -EFAULT;
 	return 0;
@@ -910,8 +899,8 @@ static long ach_ctrl_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 
 	case ACH_CTRL_CREATE_CH: {
-		struct ach_ctrl_create_ch create_arg;
 		KDEBUG("ach: Control command create\n");
+		struct ach_ctrl_create_ch create_arg;
 		if (copy_from_user(&create_arg, (void*)arg, sizeof(create_arg)) ) {
 			ret = -EFAULT;
 		} else if ( strnlen(create_arg.name,ACH_CHAN_NAME_MAX)
@@ -935,6 +924,7 @@ static long ach_ctrl_ioctl(struct file *file, unsigned int cmd,
 			struct ach_ch_device *dev;
 			dev = ach_ch_device_find(unlink_arg.name);
 			if (!dev) {
+				printk( KERN_INFO "ach: Couldn't find channel %s\n", unlink_arg.name);
 				ret = -ENOENT;
 				goto out_unlock;
 			}
@@ -955,7 +945,6 @@ static long ach_ctrl_ioctl(struct file *file, unsigned int cmd,
 		ret = -ENOSYS;
 		break;
 	}
-
  out_unlock:
 	rt_mutex_unlock(&ctrl_data.lock);
 	return ret;
@@ -967,7 +956,7 @@ static long ach_ctrl_create_ch_compat_ioctl(struct file *file, unsigned int cmd,
 {
 	struct ach_ctrl_create_ch_32 *arg32 = (struct ach_ctrl_create_ch_32 *)arg;
 	struct ach_ctrl_create_ch arg64;
-	struct ach_ctrl_create_ch *p = compat_alloc_user_space(sizeof(arg64));
+	struct ach_ctrl_create_ch p;
 	int err;
 	u32 u;
 
@@ -986,10 +975,10 @@ static long ach_ctrl_create_ch_compat_ioctl(struct file *file, unsigned int cmd,
 	arg64.frame_size = (size_t)u;
 	err |= copy_from_user(&arg64.clock, &arg32->clock, sizeof(arg64.clock));
 	err |= copy_from_user(arg64.name, arg32->name, ACH_CHAN_NAME_MAX + 1);
-	err |= copy_to_user(p, &arg64, sizeof(arg64));
+	memcpy(&p, &arg64, sizeof(arg64));
 	if (err)
 		return -EFAULT;
-	return ach_ctrl_ioctl(file, ACH_CTRL_CREATE_CH, (unsigned long)p);
+	return ach_ctrl_ioctl(file, ACH_CTRL_CREATE_CH, (unsigned long)&p);
 }
 
 static long ach_ctrl_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
@@ -1020,10 +1009,31 @@ static struct file_operations ach_ctrl_fops = {
 	.llseek = NULL,
 };
 
+#define DEV_CLASS_MODE ((umode_t)(S_IRUSR | S_IRGRP))
 static struct miscdevice ach_misc_device = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "achctrl",
-	.fops = &ach_ctrl_fops
+	.fops = &ach_ctrl_fops,
+	.mode = DEV_CLASS_MODE
+};
+
+
+// Function signiture update after 6.1.85
+#if LINUX_VERSION_CODE > KERNEL_VERSION(6,1,85)
+static char *ach_devnode(const struct device *dev, umode_t *mode)
+#else
+static char *ach_devnode(struct device *dev, umode_t *mode)
+#endif
+{
+	if (!mode)
+		return NULL;
+	*mode=DEV_CLASS_MODE;
+	return NULL;
+}
+
+struct class ach_class = {
+	.name = ACH_CH_SUBSYSTEM,
+	.devnode = ach_devnode
 };
 
 /**********************************************************************************
@@ -1054,11 +1064,12 @@ static int __init ach_init(void)
 	/* We'll use own major number as we want to control the minor numbers ourself */
 	{
 		dev_t dev_num;
+		ctrl_data.ach_ch_class = &ach_class;
+		int err = class_register(&ach_class);
 
-		ctrl_data.ach_ch_class = class_create(THIS_MODULE, ACH_CH_SUBSYSTEM);
-		if (IS_ERR(ctrl_data.ach_ch_class)) {
-			ret = PTR_ERR(ctrl_data.ach_ch_class);
-			printk(KERN_ERR "ach: Failed to create class\n");
+		if (err < 0) {
+			ret = ACH_FAILED_SYSCALL;
+			printk(KERN_ERR "ach: Failed to create class(%d)\n", err);
 			goto out_deregister;
 		}
 
